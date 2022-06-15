@@ -3,8 +3,6 @@
 
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from time import sleep
 import json
@@ -12,6 +10,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 from pprint import pprint
 import psycopg2
+# import psycopg2.extras
+from psycopg2.extras import execute_values
 
 DB_HOST = '127.0.0.1'
 DB_PORT = '5432'
@@ -34,18 +34,16 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), opti
 listData = []
 
 
-# start_page = 7239
-# number = 2
-# end_page = start_page - number
+# start_page = 7240
+# pages = 2
 
 def visit():
     for i in range(1):
-        url = 'https://www.ptt.cc/bbs/Japan_Travel/index' + str(7239 - i) + '.html'
+        url = 'https://www.ptt.cc/bbs/Japan_Travel/index' + str(7192 - i) + '.html'
         driver.get(url)
         sleep(1)
         getListItem()
         getItemDetail()
-        saveDb()
 
 
 def getListItem():
@@ -73,19 +71,26 @@ def getItemDetail():
     for index, articleDict in enumerate(listData):
         driver.get(articleDict['link'])
         meta_lines = driver.find_elements(By.CSS_SELECTOR, 'div.article-metaline')
-        strTime = meta_lines[2].find_element(By.CSS_SELECTOR, 'span.article-meta-value').get_attribute('innerText')
-        all_text = driver.find_element(By.CSS_SELECTOR, 'div#main-content').get_attribute('innerText')
-        pre_text = all_text.split('--')[0]
-        texts = pre_text.split('\n')
-        contents = texts[4:]
-        content = ''.join(contents)
+        if len(meta_lines) == 3:
+            strTime = meta_lines[2].find_element(By.CSS_SELECTOR, 'span.article-meta-value').get_attribute('innerText')
+            all_text = driver.find_element(By.CSS_SELECTOR, 'div#main-content').get_attribute('innerText')
+            pre_text = all_text.split('--')[0]
+            texts = pre_text.split('\n')
+            contents = texts[4:]
+            content = ''.join(contents)
 
-        listData[index]['time'] = strTime
-        listData[index]['content'] = content
+            listData[index]['publish_time'] = strTime
+            listData[index]['content'] = content
 
-        sleep(1)
+            sleep(1)
 
-    # pprint(listData)
+        else:
+            listData[index]['publish_time'] = None
+            listData[index]['content'] = None
+
+    #     pprint(listData)
+    savepgDb()
+    listData.clear()
 
 
 def saveJson():
@@ -93,24 +98,40 @@ def saveJson():
         fp.write(json.dumps(listData, ensure_ascii=False, indent=2))
 
 
-def saveDb():
+def savepgDb():
     conn = psycopg2.connect(conn_string)
     print("Connect sucessfully!")
+    try:
 
-    cursor = conn.cursor()
+        cursor = conn.cursor()  # cursor_factory=psycopg2.extras.DictCursor
 
-    cursor.execute('''
-        INSERT INTO public.jptrvl_post(title, link, author, time, push_count, content)
-        VALUES (%(title)s, %(link)s, %(author)s, %(time)s, %(push_count)s, %(content)s);
-    ''', {'title': listData['title'], 'link': listData['link'], 'author': listData['author'], 'time': listData['time'],
-          'push_count': listData['push_count'], 'content': listData['content']})
+        columns = listData[0].keys()
 
-    print(f'[{listData["title"]}] Append sucessfully')
+        query = "INSERT INTO public.jptrvl_post({}) VALUES %s".format(','.join(columns))
 
-    conn.commit()
+        # cursor.executemany(insert_query, listData['title'], listData['link'], listData['author'], listData['publish_time'], listData['push_count'], listData['content'])
 
-    cursor.close()
-    conn.close()
+        # convert projects values to sequence of seqeences
+        values = [[value for value in obj.values()] for obj in listData]
+
+        execute_values(cursor, query, values)
+
+        conn.commit()
+
+        count = cursor.rowcount
+
+        print(count, "Record inserted sucessfully into jptrvl")
+
+        cursor.close()
+
+    except (Exception, psycopg2.Error) as error:
+        print("Failed to insert record into table", error)
+        conn.rollback()
+
+    finally:
+        if cursor:
+            cursor.close()
+            conn.close()
 
 
 def close():
@@ -119,5 +140,5 @@ def close():
 
 if __name__ == '__main__':
     visit()
-    # saveJson()
+    #     saveJson()
     close()
