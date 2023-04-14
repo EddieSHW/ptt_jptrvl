@@ -18,15 +18,17 @@ url = 'https://historical.findrate.tw/his.php?c=JPY'
 
 listData = []
 
-def getMainData():
-    res = req.get(url= url, headers=my_headers)
+
+def get_main_data():
+    res = req.get(url=url, headers=my_headers)
     soup = bs(res.text, "lxml")
 
 
-def getDetailData():
+def get_detail_data():
     pass
 
-def saveJson():
+
+def save_json():
     with open("pttjptrvl_bs.json", "w", encoding="utf-8") as fp:
         fp.write(json.dumps(listData, ensure_ascii=False, indent=2))
 

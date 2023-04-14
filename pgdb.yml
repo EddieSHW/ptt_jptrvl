@@ -1,0 +1,38 @@
+version: '3.8'
+services:
+
+  pgdb:
+    image: postgres:15
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=pttjp_000
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=jptrvl
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - dev
+
+  pgadmin:
+    image: dpage/pgadmin4:6
+    restart: always
+    links:
+      - pgdb:db
+    ports:
+      - 7077:80
+    environment:
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_DEFAULT_EMAIL=admin@postgres.org
+    depends_on:
+      - pgdb
+    networks:
+      - dev
+
+networks:
+  dev:
+
+volumes:
+  pgdata:
+    external: true
