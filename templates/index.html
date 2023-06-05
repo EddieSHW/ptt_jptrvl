@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>PTT日旅版熱門詞彙</title>
+</head>
+<body>
+<div style="text-align:center;">
+    <h1>PTT日旅版高頻詞彙文字雲</h1>
+    <form action="/wordcloud" method="GET">
+        <select name="date">
+            {% for date in dates %}
+                <option value="{{ date }}">{{ date }}</option>
+            {% endfor %}
+        </select>
+        <input type="submit" value="生成">
+    </form>
+    <br><br>
+    {% if wordcloud_img %}
+        <img src="{{ wordcloud_img }}">
+    {% endif %}
+    <br><br>
+    <h1>日圓匯率</h1>
+    <div>
+        {{ line_chart|safe }}
+    </div>
+</div>
+
+
+{#    <script>#}
+{#        // 取得可選日期列表#}
+{#        let dates = {{ dates|tojson }};#}
+{##}
+{#        // 動態加載日期選項#}
+{#        let select = document.getElementById("date-select");#}
+{#        for (let i = 0; i < dates.length; i++) {#}
+{#            let option = document.createElement("option");#}
+{#            option.value = dates[i];#}
+{#            option.text = dates[i];#}
+{#            select.add(option);#}
+{#        }#}
+{##}
+{#        // 監聽日期選擇事件#}
+{#        select.addEventListener("change", function() {#}
+{#            // 發送AJAX請求，獲取當天的文字雲#}
+{#            let xhttp = new XMLHttpRequest();#}
+{#            xhttp.onreadystatechange = function() {#}
+{#                if (this.readyState === 4 && this.status === 200) {#}
+{#                    // 顯示文字雲#}
+{#                    document.getElementById("wordcloud-container").innerHTML = this.responseText;#}
+{#                }#}
+{#            };#}
+{#            xhttp.open("GET", "/wordcloud/" + select.value, true);#}
+{#            xhttp.send();#}
+{#        });#}
+{#    </script>#}
+</body>
+</html>

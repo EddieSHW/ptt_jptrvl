@@ -4,7 +4,6 @@
 from bs4 import BeautifulSoup as bs
 import requests as req
 import json
-from pprint import pprint
 from time import sleep
 from random import uniform
 import psycopg2
@@ -29,35 +28,42 @@ listData = []
 domainName = 'https://www.ptt.cc/bbs/Japan_Travel/index'
 pttDomain = 'https://www.ptt.cc'
 
-# total pages = 7296
+# total pages = 7572
+# 2020 start = 6994
+# 2022 start = 7219
+# 7186 enoshima error
 
-start_page = 6994
-end_page = 6995
+start_page = 7219
+end_page = 7572
 
-sleep_time = uniform(0.1, 0.5)
+sleep_time = uniform(1, 1.5)
 
 
 def get_main_data():
-    for page in range(start_page, end_page):
+    for page in range(start_page, end_page + 1):
         res = req.get(url=domainName + str(page) + '.html', headers=my_headers)
         # print(res.text)
         soup = bs(res.text, "lxml")
         posts = soup.select('div.r-ent')
         for post in posts:
-            if post:
-                strTitle = post.select_one('div.title > a').get_text()
-                strLink = post.select_one('div.title > a').get('href')
-                strAuthor = post.select_one('div.meta > div.author').get_text()
-                strPushCount = post.select_one('div.nrec').get_text()
+            if post is not None:
+                if post.select_one('div.title > a') is not None:
+                    str_title = post.select_one('div.title > a').get_text()
+                    str_link = post.select_one('div.title > a').get('href')
+                    str_author = post.select_one('div.meta > div.author').get_text()
+                    str_push_count = post.select_one('div.nrec').get_text()
 
-                listData.append({
-                    "title": strTitle,
-                    "link": strLink,
-                    "author": strAuthor,
-                    "push_count": strPushCount
-                })
+                    listData.append({
+                        "title": str_title,
+                        "link": str_link,
+                        "author": str_author,
+                        "push_count": str_push_count
+                    })
+                else:
+                    continue
             else:
                 continue
+
         # print(listData)
 
 
@@ -67,13 +73,13 @@ def get_detail_data():
         soup = bs(res.text, "lxml")
         metalines = soup.select('div.article-metaline')
         if len(metalines) == 3:
-            strTime = metalines[2].select_one('span.article-meta-value').get_text()
+            str_time = metalines[2].select_one('span.article-meta-value').get_text()
             all_text = soup.select_one('div#main-content').get_text()
             pre_text = all_text.split('--')[0]
             texts = pre_text.split('\n')
-            contents = texts[4:]
+            contents = texts[1:]
             content = ''.join(contents)
-            listData[index]['publish_time'] = strTime
+            listData[index]['publish_time'] = str_time
             listData[index]['content'] = content
 
             sleep(sleep_time)
@@ -82,7 +88,8 @@ def get_detail_data():
             listData[index]['publish_time'] = None
             listData[index]['content'] = None
 
-    pprint(listData)
+    # pprint(listData)
+        print(f'{index + 1} posts have been scrapped!')
 
 
 def save_json():
@@ -103,11 +110,17 @@ def save_pgdb():
 
         # convert projects values to sequence of sequences
         values = [[value for value in obj.values()] for obj in listData]
-
         execute_values(cur, query, values)
 
-        conn.commit()
+        # for row in values:
+        #     try:
+        #         execute_values(cur, query, [row])
+        #     except (Exception, psycopg2.Error) as error:
+        #         print("Failed to insert record into table:", error)
+        #         conn.rollback()
+        #         continue
 
+        conn.commit()
         count = cur.rowcount
 
         print(count, "Record inserted successfully into jptrvl")
@@ -121,10 +134,10 @@ def save_pgdb():
     finally:
         if cur:
             cur.close()
-            conn.close()
+        conn.close()
 
 
 if __name__ == '__main__':
     get_main_data()
     get_detail_data()
-    # save_pgdb()
+    save_pgdb()
